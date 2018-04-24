@@ -12,13 +12,24 @@ $ GcodeEdit -t1=190 PathToGcodeFile
 # This version will change the extruder's temperature
 # setting to 190C.
 $ GcodeEdit -info PathToGcodeFile
+$ GcodeEdit -dryrun PathToGcodeFile
+$ GcodeEdit -dryrun -v PathToGcodeFile
 ```
+
+The new `dryrun` command will remove all heat-, extrusion- and fan-related activities from the file, allowing your printer to go through the motions without making anything.
 
 ## Installation
 The installation of this depends upon whether or not you also have a computer based upon the OS X operating system and further, whether or not you already have the Go compiler itself.
 
 ### Mac
 Here are the instructions for installing this executable if you are on an Apple-based computer.
+
+#### If you just want the executable
+```
+$ cd /usr/local/bin      # or anywhere that's in your path
+$ curl -o GcodeEdit https://github.com/OutsourcedGuru/GcodeEdit/raw/master/bin/GcodeEdit
+$ chmod a+x GcodeEdit
+```
 
 #### If you have Go installed:
 
