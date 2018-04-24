@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -25,9 +26,16 @@ import (
 func syntax() {
 	fmt.Printf("Syntax: GcodeEdit [flags] GCodeFilePath\n\n")
 	fmt.Printf("        -t1=190                 (sets first extruder temperature in celcius)\n")
+	fmt.Printf("        -dryrun                 (no fans, no heatup, no extrusion)\n")
+	fmt.Printf("        -v                      (verbose)\n")
 	fmt.Printf("        -info                   (displays layer information in file only)\n")
 	fmt.Printf("\n")
 	os.Exit(1)
+}
+
+func commandInList(a string, list []string) bool {
+	for _, b := range list {if b == a {return true}}
+	return false
 }
 
 func main() {
@@ -45,11 +53,31 @@ func main() {
 	inputfilename                   := "N/A"
 	outputfilename                  := "N/A"
 	dataOut, err                    := os.Create("/tmp/GcodeEdit")
-	t1                              := flag.Int("t1", -1, "set first extruder to indicated temp [-t1=190]")
+	t1                              := flag.Int("t1",        -1,    "set first extruder to indicated temp [-t1=190]")
 	startfix                        := flag.Bool("startfix", false, "run first extrusion of print twice")
-	info                            := flag.Bool("info", false, "just read layer data from file")
+	dryrun                          := flag.Bool("dryrun",   false, "no heat/extrusion/fans")
+	verbose                         := flag.Bool("v",        false, "verbose output")
+	info                            := flag.Bool("info",     false, "just read layer data from file")
 	flag.Parse()
 	if len(flag.Args()) != 1        { syntax() }		// Should be only one argument as a filename after flags
+  heatrelated	                    := []string{"M101", "M102", "M103", "M104", "M106", "M107",
+																		 "M109", "M116", "M128", "M140", "M141", "M190", "M191"}
+	/*
+	dryrun-related
+	M104 Set extruder temp
+	M109 Set extruder temp and wait
+	M140 Set bed temp
+	M190 Wait for bed temp to reach target
+	M141 Set chamber temp
+	M191 Wait for chamber temp to reach target
+	M116 Wait
+	M106 Fan on
+	M107 Fan off
+	M101 Turn extruder 1 on
+	M102 Turn extruder 1 on reverse
+	M103 Turn all extruders off
+	M128 Extruder pressure PWM
+	*/
 
 	inputfilename = flag.Args()[0]
 	data, err := ioutil.ReadFile(inputfilename)
@@ -59,9 +87,9 @@ func main() {
 		return
 	}
 
-	// When finished, this should look like...                              /Users/user/Desktop/OriginalFilename_GE.gcode
-	path, basefilename := filepath.Split(inputfilename)                     // OriginalFilename.gcode
-	basefilename = basefilename[0:strings.LastIndexAny(basefilename, ".")]	// OriginalFilename
+	// When finished, this should look like...                                /Users/user/Desktop/OriginalFilename_GE.gcode
+	path, basefilename := filepath.Split(inputfilename)                       // OriginalFilename.gcode
+	basefilename =   basefilename[0:strings.LastIndexAny(basefilename, ".")]	// OriginalFilename
 	outputfilename = fmt.Sprintf("%s%s_GE%s", path, basefilename, filepath.Ext(inputfilename))
 	// Attempt to create the output file
 	if (! *info) {
@@ -84,7 +112,7 @@ func main() {
 				if firstgzeroline == ";N/A" && strings.Contains(line, "G0 ") {
 					// Haven't seen G0 yet and it's here now
 					firstgzeroline = line
-					linestoreplay = append(linestoreplay, line)
+					linestoreplay =  append(linestoreplay, line)
 					} else {
 					// Either we HAVE seen G0 or we haven't reached that line yet
 					if firstpositiveextrude == -999.99 && strings.Contains(line, " E") {
@@ -129,24 +157,44 @@ func main() {
 			if line == "\n" {
 				dataOut.WriteString("\n")
 			} else {
+				if (*dryrun && len(line) > 1) {
+					if (commandInList(line[:4], heatrelated)) {
+						// dryrun action: comment-out M104 and similar heat-related commands
+						line = ";" + line;
+						if (*verbose) {fmt.Printf("  Commented: %s\n", line)}
+					} else {
+						if (strings.Contains(line, " E") && (line[:2] == "G0" || line[:2] == "G1")) {
+							if (*verbose) {fmt.Printf("  Before:    %s\n", line)}
+							re := regexp.MustCompile(" E([0-9\\.]+)")
+							line = re.ReplaceAllString(line, "");
+							if (*verbose) {fmt.Printf("  After:     %s\n", line)}
+							orphanedFCommand, err := regexp.MatchString("G[0-1] F([0-9]+)[ ]?$", line)
+							if (err == nil && orphanedFCommand) {
+								// In some cases, this then leaves nothing but G1 F2400 left after
+								// the removal of the extrusion command; let's lose that, too.
+								line = ";" + line
+								if (*verbose) {fmt.Printf("  Commented: %s\n", line)}
+							}
+						}
+					}
+				}
 				dataOut.WriteString(line + "\n")
 			}
 		}
-}
+	}
 	dataOut.Sync()
 	dataOut.Close()
 	if !bReadError {
 		fmt.Printf("Original:  %s\n", inputfilename)
-		if (slicer != "N/A")        { fmt.Printf("Slicer:    %s\n", slicer) }
-		if (layers != "N/A")        { fmt.Printf("Layers:    %s\n", layers) }
-		if (firstlayer != -999)     { fmt.Printf("First:     %d\n", firstlayer) }
-		if (temp != "N/A")          { fmt.Printf("Temp:      %sC\n", temp) }
-
-		// Abort early if we're just interested in information from the file
+		if (slicer != "N/A")                { fmt.Printf("Slicer:    %s\n", slicer) }
+		if (layers != "N/A")                { fmt.Printf("Layers:    %s\n", layers) }
+		if (firstlayer != -999 && !*dryrun) { fmt.Printf("First:     %d\n", firstlayer) }
+		if (temp != "N/A" && !*dryrun)      { fmt.Printf("Temp:      %sC\n", temp) }
 		if (! *info) {
 			fmt.Printf("Editing:\n")
 			fmt.Printf("  Output filename:  %s\n", outputfilename)
-			if (*t1 != -1)            { fmt.Printf("  Temp now:         %dC\n", *t1) }
+			if (*t1 != -1)                    { fmt.Printf("  Temp now:         %dC\n", *t1) }
+			if (*dryrun)                      { fmt.Printf("  No heat/extrusion/fans\n") }
 		}
 		fmt.Printf("\nFinished.\n\n")
 	}
