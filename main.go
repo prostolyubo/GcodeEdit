@@ -145,7 +145,7 @@ func main() {
 						}   // if (strings.Contains(line, " E")
 					}     // if (commandInList(
 				}       // if (*dryrun && len(line) > 1)
-				
+
 				// line has been processed, now write it to the file
 				dataOut.WriteString(line + "\n")
 			}         // else for if line == "\n"
