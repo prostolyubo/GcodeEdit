@@ -14,9 +14,12 @@ $ GcodeEdit -t1=190 PathToGcodeFile
 $ GcodeEdit -info PathToGcodeFile
 $ GcodeEdit -dryrun PathToGcodeFile
 $ GcodeEdit -dryrun -v PathToGcodeFile
+$ GcodeEdit -iron=2 PathToGcodeFile
 ```
 
 The new `dryrun` command will remove all heat-, extrusion- and fan-related activities from the file, allowing your printer to go through the motions without making anything.
+
+The new `iron` command will replay the indicated layer but this time without extruding, effectively ironing that layer so that it's flatter. This might be useful for the second layer, for example, if you're having problems with bed adhesion.
 
 ## Installation
 The installation of this depends upon whether or not you also have a computer based upon the OS X operating system and further, whether or not you already have the Go compiler itself.
