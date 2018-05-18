@@ -24,7 +24,7 @@ import (
 )
 
 func showversion() {
-	fmt.Printf("v1.0.4\n")
+	fmt.Printf("v1.0.5\n")
 	os.Exit(0)
 }
 
@@ -32,10 +32,11 @@ func syntax(more string) {
 	fmt.Printf("Syntax: GcodeEdit [flags] GCodeFilePath\n\n")
 	fmt.Printf("        -t1=190                 (sets first extruder temperature in celcius)\n")
 	fmt.Printf("        -dryrun                 (no fans, no heatup, no extrusion)\n")
+	fmt.Printf("        -ssh                    (remove all comments)\n")
 	fmt.Printf("        -verbose                (verbose)\n")
 	fmt.Printf("        -info                   (displays layer information in file only)\n")
 	fmt.Printf("        --version | -v          (displays version information)\n")
-  if (more != "") {
+	if (more != "") {
 		fmt.Printf("\nError: %s\n", more)
 	}
 	fmt.Printf("\n")
@@ -66,25 +67,27 @@ func main() {
 	dataOut, err                    := os.Create("/tmp/GcodeEdit")
 	t1                              := flag.Int("t1",        -1,    "set first extruder to indicated temp [-t1=190]")
 	iron                            := flag.Int("iron",      -99,   "iron the indicated layer [-iron=3]")
+	ssh                             := flag.Bool("ssh",      false, "remove all comments")
 	dryrun                          := flag.Bool("dryrun",   false, "no heat/extrusion/fans")
 	verbose                         := flag.Bool("verbose",  false, "verbose output")
 	info                            := flag.Bool("info",     false, "just read layer data from file")
 	v                               := flag.Bool("v",        false, "show version information")
 	version                         := flag.Bool("version",  false, "show version information")
-	heatrelated	                    := []string{"M101", "M102", "M103", "M104", "M106", "M107",
-		                              "M109", "M116", "M128", "M140", "M141", "M190", "M191"}
+	heatrelated	                    := []string{"M101", "M102", "M103", "M104", "M106", "M107", "M109", "M116", "M128",
+		                                        "M140", "M141", "M190", "M191"}
 	flag.Parse()
-	if (*v && (*dryrun || *iron != -99))                 { syntax("Use -verbose with -dryrun or -iron; -v shows version info") }
-  if (*v || *version)                                  { showversion() }
-	if len(flag.Args()) != 1                             { syntax("") }		// Should be only one argument as a filename after flags
-	if (!*dryrun && *t1 == -1 && !*info && *iron == -99) { syntax("Minimally, add a command flag to perform an operation on the file") }
-	if (*verbose && ! (*dryrun || *iron != -99))         { syntax("Use -verbose with -dryrun or -iron") }
-	if (*iron <= 1 && *iron > -99)                       { syntax("Minimum -iron value should be 2") }
-	if (*dryrun) {optioncount++}
-	if (*t1 != -1) {optioncount++}
-	if (*iron != -99) {optioncount++}
-	if optioncount > 1                                   { syntax("Only one of: -dryrun, -t1 or -iron flags at a time") }
-  if (*iron != -99)                                    { ironlayer = *iron - 1 }
+	if (*dryrun)         {optioncount++}
+	if (*t1 != -1)       {optioncount++}
+	if (*iron != -99)    {optioncount++}
+	if (*ssh)            {optioncount++}
+	if (*v && (*dryrun || *iron != -99))                          { syntax("Use -verbose with -dryrun or -iron; -v shows version info") }
+	if (*v || *version)                                           { showversion() }
+	if len(flag.Args()) != 1                                      { syntax("") }		// Should be only one argument as a filename after flags
+	if (!*dryrun && *t1 == -1 && !*info && *iron == -99 && !*ssh) { syntax("Minimally, add a command flag to perform an operation on the file") }
+	if (*verbose && ! (*dryrun || *iron != -99))                  { syntax("Use -verbose with -dryrun or -iron") }
+	if (*iron <= 1 && *iron > -99)                                { syntax("Minimum -iron value should be 2") }
+	if optioncount > 1                                            { syntax("Only one of: -ssh, -dryrun, -t1 or -iron flags at a time") }
+	if (*iron != -99)                                             { ironlayer = *iron - 1 }
 	/*
 	dryrun-related
 	M104 Set extruder temp         	  M109 Set extruder temp and wait
@@ -105,10 +108,10 @@ func main() {
 		return
 	}
 
-	// Output filename should look like...                                    /Users/user/Desktop/OriginalFilename_GE.gcode
-	path, basefilename := filepath.Split(inputfilename)                       // OriginalFilename.gcode
-	basefilename =   basefilename[0:strings.LastIndexAny(basefilename, ".")]	// OriginalFilename
-	outputfilename = fmt.Sprintf("%s%s_GE%s", path, basefilename, filepath.Ext(inputfilename))
+	// Output filename should look like...                                          /Users/user/Desktop/OriginalFilename_GE.gcode
+	path, basefilename :=   filepath.Split(inputfilename)                           // OriginalFilename.gcode
+	basefilename =          basefilename[0:strings.LastIndexAny(basefilename, ".")]	// OriginalFilename
+	outputfilename =        fmt.Sprintf("%s%s_GE%s", path, basefilename, filepath.Ext(inputfilename))
 	// Attempt to create the output file
 	if (! *info) {
 		dataOut, err = os.Create(outputfilename)
@@ -170,6 +173,9 @@ func main() {
 			// M104 S190
 			if strings.Contains(line, "M104") || strings.Contains(line, "M109") {
 				temp = line[6:]
+				// Detect/remove comments after the actual temperature
+				re := regexp.MustCompile("[ \t]*;.+$")
+				temp = re.ReplaceAllString(temp, "");
 				if (*t1 != -1) {
 					if strings.Contains(line, "M104") { line = fmt.Sprintf("M104 S%d", *t1)}
 					if strings.Contains(line, "M109") { line = fmt.Sprintf("M109 S%d", *t1)}
@@ -231,9 +237,16 @@ func main() {
 				// End of iron processing
 				// ------------------------------------------------------------------
 
-				// line has been processed, now write it to the file
-				dataOut.WriteString(line + "\n")
+				// Remove comments if present
+				if (*ssh && strings.Contains(line, ";")) {
+					re := regexp.MustCompile("[ \t]*;.+$")
+					line = re.ReplaceAllString(line, "");
+				}
 
+				// line has been processed, now write it to the file
+				if (len(line) > 0) {
+					dataOut.WriteString(line + "\n")
+				}
 			}         // else for if line == "\n"
 		}           // if ! *info
 	}             // for loop
@@ -249,6 +262,7 @@ func main() {
 			fmt.Printf("  Output filename:  %s\n", outputfilename)
 			if (*t1 != -1)                    { fmt.Printf("  Temp now:         %dC\n", *t1) }
 			if (*dryrun)                      { fmt.Printf("  No heat/extrusion/fans\n") }
+			if (*ssh)                         { fmt.Printf("  All comments removed\n") }
 			if (*iron != -99) {
 				fmt.Printf("  Replayed lines:   %d\n", len(linestoreplay))
 				if (*verbose) {
