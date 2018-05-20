@@ -16,6 +16,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"path/filepath"
 	"os"
 	"regexp"
@@ -24,7 +25,7 @@ import (
 )
 
 func showversion() {
-	fmt.Printf("v1.0.5\n")
+	fmt.Printf("v1.0.6\n")
 	os.Exit(0)
 }
 
@@ -57,6 +58,11 @@ func main() {
 	slicer                          := "N/A"
 	temp                            := "N/A"
 	layers                          := "N/A"
+	printestimate                   := "N/A"
+	floatPrintEstimate              := 0.0
+	intSecondsPrintEstimate         := 0
+	intMinutesPrintEstimate         := 0 
+	intHoursPrintEstimate           := 0
 	inputfilename                   := "N/A"
 	outputfilename                  := "N/A"
 	firstironline                   := ";N/A"
@@ -123,7 +129,7 @@ func main() {
 
 	// Now process the input file into the output file
 	for _, line := range strings.Split(string(data), "\n") {
-		if strings.Contains(line, ";LAYER:")   {
+		if strings.Contains(line, ";LAYER:") {
 			currentlayer, err = strconv.Atoi(line[7:])
 			if firstlayer == -999 {
 				firstlayer = currentlayer
@@ -165,6 +171,19 @@ func main() {
 		// ----------------------------------------------------------------------
 		// End of iron processing, see below as well
 		// ----------------------------------------------------------------------
+
+		if strings.Contains(line, ";TIME_ELAPSED:") {
+			floatPrintEstimate, err =  strconv.ParseFloat(line[14:], 64)
+			intSecondsPrintEstimate =       int(math.Round(floatPrintEstimate))
+			intHoursPrintEstimate =         intSecondsPrintEstimate / 3600
+			intSecondsPrintEstimate %=      3600 
+			intMinutesPrintEstimate =       intSecondsPrintEstimate / 60
+			intSecondsPrintEstimate %=      60
+			printestimate =                 fmt.Sprintf("%02d:%02d:%02d",
+			                                intHoursPrintEstimate,
+			                                intMinutesPrintEstimate,
+			                                intSecondsPrintEstimate)
+		}
 
 		// ----------------------------------------------------------------------
 		// Header processing (info and t1)
@@ -253,10 +272,11 @@ func main() {
 	dataOut.Sync()
 	dataOut.Close()
 	if !bReadError {
-		fmt.Printf("Original:  %s\n", inputfilename)
-		if (slicer != "N/A")                { fmt.Printf("Slicer:    %s\n", slicer) }
-		if (layers != "N/A")                { fmt.Printf("Layers:    %s\n", layers) }
-		if (temp != "N/A" && !*dryrun)      { fmt.Printf("Temp:      %sC\n", temp) }
+		fmt.Printf("Original:           %s\n", inputfilename)
+		if (slicer != "N/A")                { fmt.Printf("Slicer:             %s\n", slicer) }
+		if (layers != "N/A")                { fmt.Printf("Layers:             %s\n", layers) }
+		if (printestimate != "N/A")         { fmt.Printf("Print Estimate:     %s\n", printestimate) }
+		if (temp != "N/A" && !*dryrun)      { fmt.Printf("Temp:               %sC\n", temp) }
 		if (! *info) {
 			fmt.Printf("Editing:\n")
 			fmt.Printf("  Output filename:  %s\n", outputfilename)

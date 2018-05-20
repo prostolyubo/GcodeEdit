@@ -46,10 +46,11 @@ $ cd ~/Desktop
 $ which GcodeEdit
 /usr/local/go/bin/GcodeEdit
 $ GcodeEdit -info MyFile.gcode
-Slicer:    Cura_SteamEngine 2.3.1
-Layers:    239
-First:     -6
-Temp:      187C
+Slicer:         Cura_SteamEngine 2.3.1
+Layers:         239
+Print Estimate: 00:05:26
+First:          -6
+Temp:           187C
 
 Finished.
 ```
@@ -63,10 +64,11 @@ $ cd ~/Desktop
 $ which GcodeEdit
 /usr/local/GcodeEdit
 $ GcodeEdit MyFile.gcode
-Slicer:    Cura_SteamEngine 2.3.1
-Layers:    239
-First:     -6
-Temp:      187C
+Slicer:         Cura_SteamEngine 2.3.1
+Layers:         239
+Print Estimate: 00:05:26
+First:          -6
+Temp:           187C
 
 Finished.
 ```
