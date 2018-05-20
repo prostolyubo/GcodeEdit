@@ -25,7 +25,7 @@ import (
 )
 
 func showversion() {
-	fmt.Printf("v1.0.6\n")
+	fmt.Printf("v1.0.7\n")
 	os.Exit(0)
 }
 
@@ -63,6 +63,7 @@ func main() {
 	intSecondsPrintEstimate         := 0
 	intMinutesPrintEstimate         := 0 
 	intHoursPrintEstimate           := 0
+	bytespersecond                  := 0
 	inputfilename                   := "N/A"
 	outputfilename                  := "N/A"
 	firstironline                   := ";N/A"
@@ -107,6 +108,15 @@ func main() {
 
 	// Open the indicated file
 	inputfilename = flag.Args()[0]
+	// Get the file size first
+	fileinfo, err := os.Stat(inputfilename);
+	if err != nil {
+		bReadError = true;
+		fmt.Fprintf(os.Stderr, "GcodeEdit:\n  %v\n\n", err)
+		return
+	}
+	filesize := fileinfo.Size()
+	// Then read it
 	data, err := ioutil.ReadFile(inputfilename)
 	if err != nil {
 		bReadError = true;
@@ -175,6 +185,7 @@ func main() {
 		if strings.Contains(line, ";TIME_ELAPSED:") {
 			floatPrintEstimate, err =  strconv.ParseFloat(line[14:], 64)
 			intSecondsPrintEstimate =       int(math.Round(floatPrintEstimate))
+			bytespersecond =                int(math.Round(float64(filesize) / float64(intSecondsPrintEstimate)))
 			intHoursPrintEstimate =         intSecondsPrintEstimate / 3600
 			intSecondsPrintEstimate %=      3600 
 			intMinutesPrintEstimate =       intSecondsPrintEstimate / 60
@@ -182,7 +193,7 @@ func main() {
 			printestimate =                 fmt.Sprintf("%02d:%02d:%02d",
 			                                intHoursPrintEstimate,
 			                                intMinutesPrintEstimate,
-			                                intSecondsPrintEstimate)
+											intSecondsPrintEstimate)
 		}
 
 		// ----------------------------------------------------------------------
@@ -276,6 +287,8 @@ func main() {
 		if (slicer != "N/A")                { fmt.Printf("Slicer:             %s\n", slicer) }
 		if (layers != "N/A")                { fmt.Printf("Layers:             %s\n", layers) }
 		if (printestimate != "N/A")         { fmt.Printf("Print Estimate:     %s\n", printestimate) }
+		if (filesize != 0)                  { fmt.Printf("Filesize:           %d\n", filesize) }
+		if (bytespersecond != 0)            { fmt.Printf("Bytes/second:       %d\n", bytespersecond) }
 		if (temp != "N/A" && !*dryrun)      { fmt.Printf("Temp:               %sC\n", temp) }
 		if (! *info) {
 			fmt.Printf("Editing:\n")
