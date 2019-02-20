@@ -41,7 +41,7 @@ $ chmod a+x GcodeEdit
 
 ```
 $ cd /usr/local/go/bin
-$ sudo curl https://github.com/OutsourcedGuru/GcodeEdit/raw/master/bin/GcodeEdit GcodeEdit
+$ sudo curl -o GcodeEdit https://github.com/OutsourcedGuru/GcodeEdit/raw/master/bin/GcodeEdit
 $ cd ~/Desktop
 $ which GcodeEdit
 /usr/local/go/bin/GcodeEdit
