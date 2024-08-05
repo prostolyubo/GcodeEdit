@@ -229,7 +229,7 @@ func main() {
 				// dryrun processing
 				// ------------------------------------------------------------------
 				if (*dryrun && len(line) > 1) {
-					if (commandInList(line[:4], heatrelated)) {
+					if (len(line) > 3 && commandInList(line[:4], heatrelated)) {
 						// dryrun action: comment-out M104 and similar heat-related commands
 						line = ";" + line;
 						if (*verbose) {fmt.Printf("  Commented: %s\n", line)}
