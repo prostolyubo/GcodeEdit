@@ -236,7 +236,7 @@ func main() {
 					} else {
 						if (strings.Contains(line, " E") && (line[:2] == "G0" || line[:2] == "G1")) {
 							if (*verbose) {fmt.Printf("  Before:    %s\n", line)}
-							re := regexp.MustCompile(" E([0-9\\.]+)")
+							re := regexp.MustCompile(" E([-0-9\\.]+)")
 							line = re.ReplaceAllString(line, "");
 							if (*verbose) {fmt.Printf("  After:     %s\n", line)}
 							orphanedFCommand, err := regexp.MatchString("G[0-1] F([0-9]+)[ ]?$", line)
